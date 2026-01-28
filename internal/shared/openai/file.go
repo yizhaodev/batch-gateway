@@ -52,13 +52,13 @@ type FileObject struct {
 	ID string `json:"id"`
 
 	// required. The size of the file, in bytes.
-	Bytes int32 `json:"bytes"`
+	Bytes int64 `json:"bytes"`
 
 	// required. The Unix timestamp (in seconds) for when the file was created.
-	CreatedAt int32 `json:"created_at"`
+	CreatedAt int64 `json:"created_at"`
 
 	// The Unix timestamp (in seconds) for when the file will expire.
-	ExpiresAt int32 `json:"expires_at"`
+	ExpiresAt int64 `json:"expires_at"`
 
 	// required. The name of the file.
 	Filename string `json:"filename"`

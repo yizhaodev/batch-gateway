@@ -14,3 +14,6 @@ port: "8000"
 
 # Batch TTL in seconds (default: 30 days)
 batch_ttl_seconds: 2592000
+
+# File TTL in seconds (default: 30 days)
+file_ttl_seconds: 2592000
