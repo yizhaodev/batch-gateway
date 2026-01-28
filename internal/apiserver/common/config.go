@@ -32,6 +32,7 @@ type ServerConfig struct {
 	SSLCertFile     string `yaml:"ssl_cert_file"`
 	SSLKeyFile      string `yaml:"ssl_key_file"`
 	BatchTTLSeconds int    `yaml:"batch_ttl_seconds"`
+	FileTTLSeconds  int    `yaml:"file_ttl_seconds"`
 }
 
 func NewConfig() *ServerConfig {

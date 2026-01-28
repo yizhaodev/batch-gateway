@@ -32,6 +32,7 @@ import (
 	"github.com/llm-d-incubation/batch-gateway/internal/apiserver/metrics"
 	"github.com/llm-d-incubation/batch-gateway/internal/apiserver/middleware"
 	mockapi "github.com/llm-d-incubation/batch-gateway/internal/database/mock"
+	mockfilesapi "github.com/llm-d-incubation/batch-gateway/internal/files_store/mock"
 	"k8s.io/klog/v2"
 )
 
@@ -126,11 +127,12 @@ func (s *Server) buildHandler() http.Handler {
 	eventClient := mockapi.NewMockBatchEventChannelClient()
 	queueClient := mockapi.NewMockBatchPriorityQueueClient()
 	statusClient := mockapi.NewMockBatchStatusClient()
+	filesClient := mockfilesapi.NewMockBatchFilesClient()
 
 	// register handlers
 	healthHandler := health.NewHealthApiHandler()
 	metricsHandler := metrics.NewMetricsApiHandler()
-	filesHandler := files.NewFilesApiHandler()
+	filesHandler := files.NewFilesApiHandler(s.config, filesClient)
 	batchHandler := batch.NewBatchApiHandler(s.config, dbClient, queueClient, eventClient, statusClient)
 
 	handlers := []common.ApiHandler{

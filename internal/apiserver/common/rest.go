@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/llm-d-incubation/batch-gateway/internal/shared/openai"
@@ -81,4 +82,16 @@ func WriteNotImplementedError(ctx context.Context, w http.ResponseWriter) {
 func WriteInternalServerError(ctx context.Context, w http.ResponseWriter) {
 	apiErr := openai.NewAPIError(http.StatusInternalServerError, "", "Internal Server Error", nil)
 	WriteAPIError(ctx, w, apiErr)
+}
+
+func ReadFormFile(r *http.Request, key string) (io.Reader, string, error) {
+	if err := r.ParseForm(); err != nil {
+		return nil, "", err
+	}
+
+	formFile, header, err := r.FormFile(key)
+	if err != nil {
+		return nil, "", err
+	}
+	return formFile, header.Filename, nil
 }

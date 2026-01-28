@@ -20,15 +20,26 @@ package files
 
 import (
 	"net/http"
+	"os"
+	"strconv"
+	"time"
 
 	"github.com/llm-d-incubation/batch-gateway/internal/apiserver/common"
+	"github.com/llm-d-incubation/batch-gateway/internal/files_store/api"
+	"github.com/llm-d-incubation/batch-gateway/internal/shared/openai"
+	"github.com/llm-d-incubation/batch-gateway/internal/util/logging"
 )
 
 type FilesApiHandler struct {
+	config      *common.ServerConfig
+	filesClient api.BatchFilesClient
 }
 
-func NewFilesApiHandler() *FilesApiHandler {
-	return &FilesApiHandler{}
+func NewFilesApiHandler(config *common.ServerConfig, filesClient api.BatchFilesClient) *FilesApiHandler {
+	return &FilesApiHandler{
+		config:      config,
+		filesClient: filesClient,
+	}
 }
 
 func (c *FilesApiHandler) GetRoutes() []common.Route {
@@ -62,7 +73,74 @@ func (c *FilesApiHandler) GetRoutes() []common.Route {
 }
 
 func (c *FilesApiHandler) CreateFile(w http.ResponseWriter, r *http.Request) {
-	common.WriteNotImplementedError(r.Context(), w)
+	ctx := r.Context()
+	logger := logging.GetRequestLogger(r)
+
+	// Read form file from request
+	reader, filename, err := common.ReadFormFile(r, "file")
+	if err != nil {
+		logger.Error(err, "failed to read form file from request")
+		common.WriteInternalServerError(ctx, w)
+		return
+	}
+
+	purpose := r.FormValue("purpose")
+
+	// Parse expires_after parameters if provided, otherwise use default TTL from config
+	var expiresAt int64
+	expiresAfterAnchor := r.FormValue("expires_after[anchor]")
+	expiresAfterSecondsStr := r.FormValue("expires_after[seconds]")
+	if expiresAfterAnchor != "" && expiresAfterSecondsStr != "" {
+		expiresAfterSeconds, err := strconv.ParseInt(expiresAfterSecondsStr, 10, 64)
+		if err != nil {
+			logger.Error(err, "failed to parse expires_after[seconds]")
+			common.WriteInternalServerError(ctx, w)
+			return
+		}
+
+		createdAt := time.Now()
+		expiresAt = createdAt.Add(time.Duration(expiresAfterSeconds) * time.Second).Unix()
+		logger.Info("file expiration set from request", "anchor", expiresAfterAnchor, "seconds", expiresAfterSeconds, "expiresAt", expiresAt)
+	} else if c.config.FileTTLSeconds > 0 {
+		// Use default TTL from config if expires_after not provided
+		createdAt := time.Now()
+		expiresAt = createdAt.Add(time.Duration(c.config.FileTTLSeconds) * time.Second).Unix()
+		logger.Info("file expiration set from config default", "ttlSeconds", c.config.FileTTLSeconds, "expiresAt", expiresAt)
+	}
+
+	// Create a temporary file under /tmp
+	tmpFile, err := os.CreateTemp("/tmp", "upload-*.tmp")
+	if err != nil {
+		logger.Error(err, "failed to create temp file")
+		common.WriteInternalServerError(ctx, w)
+		return
+	}
+	defer tmpFile.Close()
+
+	// Store the file using the files client
+	const maxFileSize = 100 << 20 // 100MB limit
+	meta, err := c.filesClient.Store(ctx, tmpFile.Name(), maxFileSize, reader)
+	if err != nil {
+		logger.Error(err, "failed to store file")
+		common.WriteInternalServerError(ctx, w)
+		return
+	}
+
+	logger.Info("file stored successfully", "location", meta.Location, "size", meta.Size)
+
+	// Construct create response
+	fileObj := openai.FileObject{
+		ID:        meta.ID,
+		Bytes:     meta.Size,
+		CreatedAt: meta.ModTime.Unix(),
+		ExpiresAt: expiresAt,
+		Filename:  filename,
+		Object:    "file",
+		Purpose:   openai.FileObjectPurpose(purpose),
+		Status:    openai.FileObjectStatusUploaded,
+	}
+
+	common.WriteJSONResponse(ctx, w, http.StatusOK, fileObj)
 }
 
 func (c *FilesApiHandler) DeleteFile(w http.ResponseWriter, r *http.Request) {

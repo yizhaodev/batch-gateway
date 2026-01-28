@@ -27,6 +27,7 @@ import (
 )
 
 type BatchFileMetadata struct {
+	ID       string    // The file identifier, which can be referenced in the API endpoints
 	Location string    // Absolute location of the file.
 	Size     int64     // The size of the file in bytes.
 	ModTime  time.Time // Modification time.
