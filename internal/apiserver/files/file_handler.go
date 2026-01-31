@@ -19,6 +19,7 @@ limitations under the License.
 package files
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"strconv"
@@ -76,6 +77,20 @@ func (c *FilesApiHandler) CreateFile(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := logging.GetRequestLogger(r)
 
+	// Check Content-Length header before reading the body
+	maxFileSize := c.config.GetMaxFileSizeBytes()
+	if r.ContentLength > maxFileSize {
+		logger.Info("file size exceeds limit", "contentLength", r.ContentLength, "limit", maxFileSize)
+		apiErr := openai.NewAPIError(
+			http.StatusBadRequest,
+			"",
+			fmt.Sprintf("File size exceeds the maximum allowed size of %d bytes", maxFileSize),
+			nil,
+		)
+		common.WriteAPIError(ctx, w, apiErr)
+		return
+	}
+
 	// Read form file from request
 	reader, filename, err := common.ReadFormFile(r, "file")
 	if err != nil {
@@ -118,7 +133,6 @@ func (c *FilesApiHandler) CreateFile(w http.ResponseWriter, r *http.Request) {
 	defer tmpFile.Close()
 
 	// Store the file using the files client
-	const maxFileSize = 100 << 20 // 100MB limit
 	meta, err := c.filesClient.Store(ctx, tmpFile.Name(), maxFileSize, reader)
 	if err != nil {
 		logger.Error(err, "failed to store file")

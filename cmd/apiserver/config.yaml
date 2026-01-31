@@ -17,3 +17,7 @@ batch_ttl_seconds: 2592000
 
 # File TTL in seconds (default: 30 days)
 file_ttl_seconds: 2592000
+
+# Maximum file size in bytes (default: 512 MB)
+# Set to 0 or omit to use the default of 512 MB (536870912 bytes)
+# file_max_size_bytes: 536870912

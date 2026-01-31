@@ -33,6 +33,7 @@ type ServerConfig struct {
 	SSLKeyFile      string `yaml:"ssl_key_file"`
 	BatchTTLSeconds int    `yaml:"batch_ttl_seconds"`
 	FileTTLSeconds  int    `yaml:"file_ttl_seconds"`
+	FileMaxSizeBytes int64 `yaml:"file_max_size_bytes"`
 }
 
 func NewConfig() *ServerConfig {
@@ -101,4 +102,12 @@ func (c *ServerConfig) loadFromFile(path string) error {
 
 func (c *ServerConfig) SSLEnabled() bool {
 	return (c.SSLCertFile != "" && c.SSLKeyFile != "")
+}
+
+func (c *ServerConfig) GetMaxFileSizeBytes() int64 {
+	if c.FileMaxSizeBytes > 0 {
+		return c.FileMaxSizeBytes
+	}
+	// Default to 512 MB if not configured
+	return 512 << 20
 }
